@@ -1,0 +1,79 @@
+name: inventario-items-mantenimiento
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: inventario-mantenimiento-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: inventario_mantenimiento
+    ports:
+      - "5434:5432"
+    volumes:
+      - inventario_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inventario_mantenimiento"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - inventario_network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: inventario-mantenimiento-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      ENVIRONMENT: docker
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/inventario_mantenimiento
+      FRONTEND_URL: http://localhost:4200
+      CREATE_TABLES_ON_STARTUP: "true"
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - inventario_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: inventario-mantenimiento-frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_URL: http://localhost:8001/api/v1
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npm start -- --host 0.0.0.0 --port 4200
+    networks:
+      - inventario_network
+
+volumes:
+  inventario_pgdata:
+  frontend_node_modules:
+
+networks:
+  inventario_network:
+    driver: bridge

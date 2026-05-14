@@ -1,0 +1,84 @@
+# ======================
+# ENV / SECRETS
+# ======================
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Permitir ejemplos
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# ======================
+# PYTHON
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ======================
+# FASTAPI / LOGS
+# ======================
+*.log
+logs/
+uploads/
+tmp/
+temp/
+
+# ======================
+# NODE / ANGULAR
+# ======================
+node_modules/
+frontend/node_modules/
+.angular/
+frontend/.angular/
+dist/
+frontend/dist/
+coverage/
+frontend/coverage/
+
+# ======================
+# DOCKER
+# ======================
+*.pid
+docker-compose.override.yml
+
+# ======================
+# DATABASE / BACKUPS
+# ======================
+*.sql
+*.dump
+*.backup
+*.bak
+backup_*.sql
+backups/
+
+# ======================
+# IDE / OS
+# ======================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ======================
+# NPM
+# ======================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
