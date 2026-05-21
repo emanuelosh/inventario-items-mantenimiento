@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,16 +27,23 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str = ''
     STOCK_ALERT_EXTRA_RECIPIENTS: str = ''
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        if isinstance(value, str) and value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
+
     @property
     def stock_alert_recipients(self) -> list[str]:
         if not self.STOCK_ALERT_EXTRA_RECIPIENTS:
             return []
 
         return [
-        email.strip()
-        for email in self.STOCK_ALERT_EXTRA_RECIPIENTS.split(",")
-        if email.strip()
-    ]
+            email.strip()
+            for email in self.STOCK_ALERT_EXTRA_RECIPIENTS.split(",")
+            if email.strip()
+        ]
 
 
 @lru_cache
