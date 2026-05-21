@@ -6,6 +6,34 @@ from typing import Iterable
 
 from app.core.config import settings
 
+BASE_STYLE = """
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+    .wrapper { background: #f1f5f9; padding: 32px 16px; }
+    .card { background: #ffffff; border-radius: 16px; padding: 32px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; box-shadow: 0 4px 24px rgba(15,23,42,0.07); }
+    .header { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+    .logo { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: #0f172a; color: white; font-size: 14px; font-weight: 800; border-radius: 12px; letter-spacing: -0.02em; margin-bottom: 14px; }
+    .title { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #0f172a; margin-bottom: 6px; }
+    .subtitle { font-size: 14px; color: #64748b; line-height: 1.5; }
+    .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .info-table th { background: #f8fafc; color: #475569; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .info-table td { padding: 11px 14px; font-size: 14px; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    .info-table tr:last-child td { border-bottom: none; }
+    .info-table td strong { font-weight: 700; color: #0f172a; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .badge-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .badge-success { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+    .badge-info { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+    .btn { display: inline-block; background: #0f172a; color: white; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 700; margin-top: 20px; }
+    .footer { margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; line-height: 1.6; text-align: center; }
+    .alert-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; }
+    .alert-icon { font-size: 18px; line-height: 1; margin-top: 1px; }
+    .alert-text { font-size: 14px; color: #7f1d1d; line-height: 1.5; }
+    .alert-text strong { color: #b91c1c; display: block; margin-bottom: 3px; font-size: 15px; }
+  </style>
+"""
+
 
 class EmailService:
     def __init__(self) -> None:
@@ -45,12 +73,10 @@ class EmailService:
         message["To"] = ", ".join(recipients)
 
         plain_text = text_body or self._html_to_text(html_body)
-
         message.attach(MIMEText(plain_text, "plain", "utf-8"))
         message.attach(MIMEText(html_body, "html", "utf-8"))
 
         context = ssl.create_default_context()
-
         with smtplib.SMTP(self.host, int(self.port), timeout=30) as server:
             server.ehlo()
             server.starttls(context=context)
@@ -68,49 +94,43 @@ class EmailService:
         login_url: str | None = None,
     ) -> bool:
         login_url = login_url or settings.FRONTEND_URL
+        subject = f"Bienvenido al sistema de inventario · {full_name}"
 
-        subject = "Cuenta creada - Inventario Mantenimiento"
+        html = f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8">{BASE_STYLE}</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div class="logo">IM</div>
+        <div class="title">Cuenta creada exitosamente</div>
+        <div class="subtitle">Se ha creado tu acceso al sistema de gestión de inventario de mantenimiento.</div>
+      </div>
 
-        html = f"""
-        <div style="font-family:Arial,sans-serif;background:#f4f6fb;padding:24px;">
-          <div style="max-width:620px;margin:auto;background:white;border-radius:16px;padding:28px;border:1px solid #e5e7eb;">
-            <h2 style="margin-top:0;color:#0f172a;">Bienvenido al sistema de inventario</h2>
+      <p style="font-size:15px; color:#334155; margin-bottom:16px;">Hola <strong style="color:#0f172a;">{full_name}</strong>,</p>
 
-            <p>Hola <strong>{full_name}</strong>,</p>
+      <table class="info-table">
+        <thead><tr><th colspan="2">Datos de tu cuenta</th></tr></thead>
+        <tbody>
+          <tr><td>Correo</td><td><strong>{to_email}</strong></td></tr>
+          <tr><td>Rol asignado</td><td><span class="badge badge-info">{role}</span></td></tr>
+          <tr><td>Estado</td><td><span class="badge badge-success">Activo</span></td></tr>
+        </tbody>
+      </table>
 
-            <p>Se ha creado tu cuenta en la plataforma de <strong>Inventario de Mantenimiento</strong>.</p>
+      <a href="{login_url}" class="btn">Ingresar a la plataforma →</a>
 
-            <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Correo</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{to_email}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Rol</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{role}</td>
-              </tr>
-            </table>
+      <div class="footer">
+        Este correo fue generado automáticamente por el Sistema de Inventario de Mantenimiento.<br>
+        Si no esperabas este mensaje, por favor ignóralo.
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
 
-            <p>Puedes ingresar desde el siguiente enlace:</p>
-
-            <p>
-              <a href="{login_url}" style="display:inline-block;background:#0f172a;color:white;padding:12px 18px;border-radius:10px;text-decoration:none;">
-                Ingresar a la plataforma
-              </a>
-            </p>
-
-            <p style="color:#64748b;font-size:13px;margin-top:24px;">
-              Este correo fue generado automáticamente por el sistema de inventario.
-            </p>
-          </div>
-        </div>
-        """
-
-        return self.send_email(
-            to=[to_email],
-            subject=subject,
-            html_body=html,
-        )
+        return self.send_email(to=[to_email], subject=subject, html_body=html)
 
     def send_stock_alert_email(
         self,
@@ -120,46 +140,54 @@ class EmailService:
         min_stock: int,
         recipients: Iterable[str],
     ) -> bool:
-        subject = f"Alerta de stock mínimo - {item_name}"
+        subject = f"⚠ Alerta de stock mínimo · {item_name} ({item_code})"
+        diff = min_stock - current_stock
+        urgency = "crítico" if current_stock == 0 else "bajo"
 
-        html = f"""
-        <div style="font-family:Arial,sans-serif;background:#f4f6fb;padding:24px;">
-          <div style="max-width:620px;margin:auto;background:white;border-radius:16px;padding:28px;border:1px solid #e5e7eb;">
-            <h2 style="margin-top:0;color:#b91c1c;">Alerta de stock mínimo</h2>
+        html = f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8">{BASE_STYLE}</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div class="logo">IM</div>
+        <div class="title" style="color:#b91c1c;">Alerta de stock {urgency}</div>
+        <div class="subtitle">Un artículo del inventario requiere atención inmediata de reposición.</div>
+      </div>
 
-            <p>El siguiente artículo llegó al stock mínimo o está por debajo del mínimo configurado.</p>
-
-            <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Código</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{item_code}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Artículo</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{item_name}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Stock actual</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{current_stock}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Stock mínimo</strong></td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{min_stock}</td>
-              </tr>
-            </table>
-
-            <p style="color:#64748b;font-size:13px;margin-top:24px;">
-              Este correo fue generado automáticamente por el sistema de inventario.
-            </p>
-          </div>
+      <div class="alert-banner">
+        <div class="alert-icon">⚠</div>
+        <div class="alert-text">
+          <strong>{item_name}</strong>
+          El stock actual ({current_stock}) está {"en cero" if current_stock == 0 else f"por debajo del mínimo configurado ({min_stock})"}.
+          {"Se recomienda reponer al menos " + str(diff) + " unidades." if diff > 0 else ""}
         </div>
-        """
+      </div>
 
-        return self.send_email(
-            to=recipients,
-            subject=subject,
-            html_body=html,
-        )
+      <table class="info-table">
+        <thead><tr><th colspan="2">Detalle del artículo</th></tr></thead>
+        <tbody>
+          <tr><td>Código</td><td><strong>{item_code}</strong></td></tr>
+          <tr><td>Artículo</td><td><strong>{item_name}</strong></td></tr>
+          <tr><td>Stock actual</td><td><span class="badge badge-danger">{current_stock} unidades</span></td></tr>
+          <tr><td>Stock mínimo</td><td>{min_stock} unidades</td></tr>
+          {"<tr><td>Unidades a reponer</td><td><strong>" + str(diff) + "</strong></td></tr>" if diff > 0 else ""}
+        </tbody>
+      </table>
+
+      <a href="{settings.FRONTEND_URL}/inventory" class="btn">Ver inventario →</a>
+
+      <div class="footer">
+        Alerta generada automáticamente por el Sistema de Inventario de Mantenimiento.<br>
+        Ingresa a la plataforma para registrar la reposición.
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
+
+        return self.send_email(to=recipients, subject=subject, html_body=html)
 
     def _html_to_text(self, html: str) -> str:
         return (

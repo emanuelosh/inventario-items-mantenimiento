@@ -16,79 +16,139 @@ import { MovementsService } from '../../core/movements.service';
     <div class="page-header">
       <div>
         <h1>Movimientos</h1>
-        <p>Formulario optimizado para registrar entradas y salidas desde celular.</p>
+        <p>Registra entradas y salidas de artículos. Optimizado para uso desde celular.</p>
       </div>
     </div>
 
     <div class="grid-2 align-start">
-      <section class="card mobile-form-card">
-        <h2>Registrar movimiento</h2>
+      <!-- Form -->
+      <section class="card">
+        <h2 style="margin-bottom:18px;">Registrar movimiento</h2>
+
         <form class="form-grid" (ngSubmit)="submit()">
+          <!-- Item code lookup -->
           <label>
             Código del artículo
             <div class="inline-input">
-              <input name="item_code" [(ngModel)]="payload.item_code" required placeholder="Ej: MANT-0001" (blur)="previewItem()">
-              <button type="button" class="ghost-btn" [disabled]="previewLoading || !canPreviewItem()" (click)="previewItem()">
-                {{ previewLoading ? 'Buscando...' : 'Buscar' }}
+              <input
+                name="item_code"
+                [(ngModel)]="payload.item_code"
+                required
+                placeholder="Ej: MANT-0001"
+                (blur)="previewItem()"
+                style="text-transform:uppercase;"
+              >
+              <button
+                type="button"
+                class="ghost-btn"
+                [disabled]="previewLoading || !canPreviewItem()"
+                (click)="previewItem()"
+              >
+                <span *ngIf="previewLoading" class="spinner"></span>
+                {{ previewLoading ? '' : 'Buscar' }}
               </button>
             </div>
           </label>
 
+          <!-- Preview -->
           <div class="preview-box" *ngIf="previewName">
             <strong>{{ previewName }}</strong>
             <span>Stock actual: {{ previewStock }}</span>
           </div>
 
-          <label>
-            Tipo de movimiento
-            <select name="movement_type" [(ngModel)]="payload.movement_type" required>
-              <option value="entrada">Entrada</option>
-              <option value="salida">Salida</option>
-            </select>
-          </label>
+          <div class="error" *ngIf="previewError" style="margin:0;">{{ previewError }}</div>
+
+          <!-- Type selector -->
+          <label>Tipo de movimiento</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:-8px;">
+            <button
+              type="button"
+              [class]="payload.movement_type === 'entrada' ? 'success-btn' : 'ghost-btn'"
+              (click)="payload.movement_type = 'entrada'"
+              style="padding:12px; border-radius:12px; font-size:0.95rem;"
+            >
+              ↑ Entrada
+            </button>
+            <button
+              type="button"
+              [class]="payload.movement_type === 'salida' ? 'danger-btn' : 'ghost-btn'"
+              (click)="payload.movement_type = 'salida'"
+              style="padding:12px; border-radius:12px; font-size:0.95rem;"
+            >
+              ↓ Salida
+            </button>
+          </div>
 
           <label>
-            Cantidad
+            Cantidad *
             <input type="number" name="quantity" [(ngModel)]="payload.quantity" min="1" required>
           </label>
 
           <label>
             Motivo
-            <input name="reason" [(ngModel)]="payload.reason" placeholder="Ej: Cambio habitación 203">
+            <input name="reason" [(ngModel)]="payload.reason" placeholder="Ej: Cambio habitación 203, Reposición mensual">
           </label>
 
           <label>
             Observación
-            <textarea name="notes" [(ngModel)]="payload.notes" rows="3" placeholder="Detalle opcional"></textarea>
+            <textarea name="notes" [(ngModel)]="payload.notes" rows="2" placeholder="Detalles adicionales (opcional)"></textarea>
           </label>
 
           <p class="error" *ngIf="error">{{ error }}</p>
           <p class="success-text" *ngIf="success">{{ success }}</p>
 
-          <button type="submit" class="primary-btn" [disabled]="saving || !canSubmitMovement()">
-            {{ saving ? 'Registrando...' : 'Registrar movimiento' }}
+          <button
+            type="submit"
+            [class]="payload.movement_type === 'entrada' ? 'success-btn' : 'primary-btn'"
+            [disabled]="saving || !canSubmitMovement()"
+            style="margin-top:4px;"
+          >
+            <span *ngIf="saving" class="spinner"></span>
+            {{ saving ? 'Registrando...' : (payload.movement_type === 'entrada' ? '↑ Registrar entrada' : '↓ Registrar salida') }}
           </button>
         </form>
       </section>
 
+      <!-- History -->
       <section class="card" *ngIf="showHistory">
         <div class="section-title">
           <h2>Historial reciente</h2>
           <button class="ghost-btn small" type="button" [disabled]="historyLoading" (click)="loadMovements()">
-            {{ historyLoading ? 'Actualizando...' : 'Actualizar' }}
+            <span *ngIf="historyLoading" class="spinner"></span>
+            {{ historyLoading ? '' : 'Actualizar' }}
           </button>
         </div>
-        <div *ngIf="movements.length === 0 && !historyLoading" class="empty">Sin movimientos registrados.</div>
-        <div *ngIf="historyLoading" class="empty">Cargando movimientos...</div>
+
+        <div *ngIf="movements.length === 0 && !historyLoading" class="empty">
+          <span class="empty-icon">⇄</span>
+          Sin movimientos registrados.
+        </div>
+
+        <div *ngIf="historyLoading" class="empty">
+          <span class="spinner"></span>
+        </div>
+
         <div *ngFor="let mov of movements" class="mini-row">
-          <div>
-            <strong>{{ mov.item_code }} · {{ mov.item_name }}</strong>
-            <span>{{ mov.performed_by_name }} · {{ mov.created_at | date:'short' }}</span>
-            <small>{{ mov.reason }}</small>
+          <div style="min-width:0; flex:1;">
+            <strong>{{ mov.item_name }}</strong>
+            <span>{{ mov.item_code }} · {{ mov.performed_by_name }}</span>
+            <small>{{ mov.created_at | date:'dd/MM/yy HH:mm' }}<span *ngIf="mov.reason"> · {{ mov.reason }}</span></small>
           </div>
-          <span class="pill" [class.success]="mov.movement_type === 'entrada'" [class.danger]="mov.movement_type === 'salida'">
-            {{ mov.movement_type }} {{ mov.quantity }}
-          </span>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+            <span class="mov-type-badge" [class.entrada]="mov.movement_type === 'entrada'" [class.salida]="mov.movement_type === 'salida'">
+              {{ mov.movement_type === 'entrada' ? '+' : '−' }}{{ mov.quantity }}
+            </span>
+            <small style="font-size:0.72rem; color:var(--text-muted);">{{ mov.stock_before }} → {{ mov.stock_after }}</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- Collaborator note -->
+      <section class="card" *ngIf="!showHistory" style="background:var(--gray-50);">
+        <div style="text-align:center; padding:20px 0;">
+          <span style="font-size:2rem; display:block; margin-bottom:10px;">⇄</span>
+          <p style="font-weight:600; color:var(--gray-700);">Registra un movimiento usando el formulario.</p>
+          <p style="font-size:0.875rem; color:var(--text-muted); margin-top:6px;">El historial solo está disponible para supervisores.</p>
         </div>
       </section>
     </div>
@@ -102,6 +162,7 @@ export class MovementsComponent implements OnInit {
   historyLoading = false;
   error = '';
   success = '';
+  previewError = '';
   previewName = '';
   previewStock = '';
 
@@ -137,18 +198,13 @@ export class MovementsComponent implements OnInit {
     if (!code || this.previewLoading) return;
 
     this.previewLoading = true;
-    this.error = '';
+    this.previewError = '';
     this.previewName = '';
     this.previewStock = '';
     this.cdr.detectChanges();
 
     this.itemsService.getByCode(code)
-      .pipe(
-        finalize(() => {
-          this.previewLoading = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.previewLoading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (item) => {
           this.payload.item_code = item.code;
@@ -156,15 +212,14 @@ export class MovementsComponent implements OnInit {
           this.previewStock = `${item.current_stock} ${item.unit}`;
         },
         error: (err) => {
-          console.error('Error buscando artículo:', err);
-          this.error = getHttpErrorMessage(err, 'No fue posible encontrar el artículo.');
+          this.previewError = getHttpErrorMessage(err, 'Artículo no encontrado. Verifica el código.');
         }
       });
   }
 
   submit(): void {
     if (this.saving || !this.canSubmitMovement()) {
-      this.error = 'Completa código del artículo y cantidad válida.';
+      this.error = 'Completa el código del artículo y la cantidad.';
       this.cdr.detectChanges();
       return;
     }
@@ -184,24 +239,19 @@ export class MovementsComponent implements OnInit {
     };
 
     this.movementsService.create(cleanPayload)
-      .pipe(
-        finalize(() => {
-          this.saving = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (response) => {
           this.success = response.alert_sent
-            ? 'Movimiento registrado. Se envió alerta de stock mínimo.'
+            ? '¡Movimiento registrado! Se envió alerta de stock mínimo por correo.'
             : 'Movimiento registrado correctamente.';
           this.payload = this.emptyPayload();
           this.previewName = '';
           this.previewStock = '';
+          this.previewError = '';
           if (this.showHistory) this.loadMovements();
         },
         error: (err) => {
-          console.error('Error registrando movimiento:', err);
           this.error = getHttpErrorMessage(err, 'No fue posible registrar el movimiento.');
         }
       });
@@ -209,36 +259,18 @@ export class MovementsComponent implements OnInit {
 
   loadMovements(): void {
     if (this.historyLoading) return;
-
     this.historyLoading = true;
     this.cdr.detectChanges();
 
     this.movementsService.list(100)
-      .pipe(
-        finalize(() => {
-          this.historyLoading = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.historyLoading = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (movements) => {
-          this.movements = movements;
-        },
-        error: (err) => {
-          console.error('Error cargando movimientos:', err);
-          this.error = getHttpErrorMessage(err, 'No fue posible cargar los movimientos.');
-        }
+        next: (movements) => { this.movements = movements; },
+        error: (err) => { this.error = getHttpErrorMessage(err, 'No fue posible cargar los movimientos.'); }
       });
   }
 
   private emptyPayload(): MovementPayload {
-    return {
-      item_code: '',
-      item_id: null,
-      movement_type: 'salida',
-      quantity: 1,
-      reason: '',
-      notes: ''
-    };
+    return { item_code: '', item_id: null, movement_type: 'salida', quantity: 1, reason: '', notes: '' };
   }
 }

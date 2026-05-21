@@ -14,23 +14,39 @@ import { getHttpErrorMessage } from '../core/http-error';
     <main class="auth-page">
       <section class="auth-card">
         <div class="brand-mark">IM</div>
-        <h1>Inventario Mantenimiento</h1>
-        <p class="muted">Ingresa para controlar artículos, movimientos y reportes.</p>
+        <h1>Bienvenido</h1>
+        <p class="auth-subtitle">Ingresa a tu cuenta para gestionar el inventario.</p>
 
         <form (ngSubmit)="submit()" class="form-grid">
           <label>
             Correo electrónico
-            <input type="email" name="email" [(ngModel)]="email" required placeholder="usuario@empresa.com">
+            <input
+              type="email"
+              name="email"
+              [(ngModel)]="email"
+              required
+              placeholder="usuario@empresa.com"
+              autocomplete="email"
+            >
           </label>
 
           <label>
             Contraseña
-            <input type="password" name="password" [(ngModel)]="password" required placeholder="Tu contraseña">
+            <input
+              type="password"
+              name="password"
+              [(ngModel)]="password"
+              required
+              placeholder="Tu contraseña"
+              autocomplete="current-password"
+            >
           </label>
 
           <p class="error" *ngIf="error">{{ error }}</p>
-          <button type="submit" class="primary-btn" [disabled]="loading || !canLogin()">
-            {{ loading ? 'Ingresando...' : 'Ingresar' }}
+
+          <button type="submit" class="primary-btn" [disabled]="loading || !canLogin()" style="margin-top:4px;">
+            <span *ngIf="loading" class="spinner"></span>
+            {{ loading ? 'Ingresando...' : 'Ingresar al sistema' }}
           </button>
         </form>
 
@@ -66,20 +82,11 @@ export class LoginComponent {
     this.error = '';
     this.cdr.detectChanges();
 
-    this.auth.login({
-      email: this.email.trim().toLowerCase(),
-      password: this.password
-    })
-      .pipe(
-        finalize(() => {
-          this.loading = false;
-          this.cdr.detectChanges();
-        })
-      )
+    this.auth.login({ email: this.email.trim().toLowerCase(), password: this.password })
+      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => this.router.navigateByUrl('/dashboard'),
         error: (err) => {
-          console.error('Error login:', err);
           this.error = getHttpErrorMessage(err, 'No fue posible iniciar sesión.');
         }
       });

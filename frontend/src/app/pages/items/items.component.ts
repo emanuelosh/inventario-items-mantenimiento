@@ -16,25 +16,44 @@ import { MANAGE_ITEM_ROLES, hasRole } from '../../core/roles';
     <div class="page-header">
       <div>
         <h1>Inventario</h1>
-        <p>Administra artículos por código único, stock máximo y mínimo.</p>
+        <p>Administra artículos por código único con control de stock mínimo y máximo.</p>
       </div>
-      <button *ngIf="canManageItems" class="primary-btn compact" type="button" (click)="openCreate()">Nuevo artículo</button>
+      <div class="page-header-actions">
+        <button *ngIf="canManageItems" class="primary-btn compact" type="button" (click)="openCreate()">
+          + Nuevo artículo
+        </button>
+      </div>
     </div>
 
-    <section class="toolbar card flat">
-      <input placeholder="Buscar por código o nombre" [(ngModel)]="search" (keyup.enter)="load()">
-      <select [(ngModel)]="statusFilter" (change)="load()">
-        <option value="all">Todos</option>
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input
+        class="toolbar-search"
+        placeholder="Buscar por código o nombre..."
+        [(ngModel)]="search"
+        (keyup.enter)="load()"
+      >
+      <select [(ngModel)]="statusFilter" (change)="load()" style="min-width:160px;">
+        <option value="all">Todos los estados</option>
         <option value="low">Stock mínimo</option>
         <option value="ok">Stock normal</option>
         <option value="high">Sobrestock</option>
       </select>
       <button class="ghost-btn" type="button" [disabled]="loadingItems" (click)="load()">
-        {{ loadingItems ? 'Buscando...' : 'Buscar' }}
+        <span *ngIf="loadingItems" class="spinner"></span>
+        {{ loadingItems ? '' : 'Buscar' }}
       </button>
-    </section>
+    </div>
 
-    <p class="error" *ngIf="error">{{ error }}</p>
+    <p class="error" *ngIf="error" style="margin-bottom:14px;">{{ error }}</p>
+
+    <!-- Summary bar -->
+    <div *ngIf="items.length > 0" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+      <span class="pill">{{ items.length }} artículos</span>
+      <span class="pill danger" *ngIf="countByStatus('low') > 0">{{ countByStatus('low') }} en mínimo</span>
+      <span class="pill warning" *ngIf="countByStatus('high') > 0">{{ countByStatus('high') }} sobrestock</span>
+      <span class="pill success" *ngIf="countByStatus('ok') > 0">{{ countByStatus('ok') }} normales</span>
+    </div>
 
     <section class="table-card">
       <div class="table-responsive">
@@ -43,8 +62,9 @@ import { MANAGE_ITEM_ROLES, hasRole } from '../../core/roles';
             <tr>
               <th>Código</th>
               <th>Artículo</th>
+              <th>Unidad</th>
               <th>Stock</th>
-              <th>Mín/Máx</th>
+              <th>Mín / Máx</th>
               <th>Estado</th>
               <th>Activo</th>
               <th *ngIf="canManageItems">Acciones</th>
@@ -52,69 +72,103 @@ import { MANAGE_ITEM_ROLES, hasRole } from '../../core/roles';
           </thead>
           <tbody>
             <tr *ngFor="let item of items">
-              <td><strong>{{ item.code }}</strong></td>
+              <td><code style="font-size:0.82rem; background:var(--gray-100); padding:3px 7px; border-radius:6px; color:var(--gray-700);">{{ item.code }}</code></td>
               <td>
-                {{ item.name }}
-                <small>{{ item.description }}</small>
+                <strong>{{ item.name }}</strong>
+                <small *ngIf="item.description">{{ item.description }}</small>
               </td>
-              <td>{{ item.current_stock }} {{ item.unit }}</td>
-              <td>{{ item.min_stock }} / {{ item.max_stock }}</td>
+              <td style="color:var(--text-secondary); font-size:0.875rem;">{{ item.unit }}</td>
+              <td>
+                <span [style.font-weight]="'700'" [style.color]="stockColor(item)">
+                  {{ item.current_stock }}
+                </span>
+              </td>
+              <td style="color:var(--text-secondary); font-size:0.875rem;">{{ item.min_stock }} / {{ item.max_stock }}</td>
               <td><span class="pill" [ngClass]="statusClass(item.stock_status)">{{ statusLabel(item.stock_status) }}</span></td>
-              <td>{{ item.is_active ? 'Sí' : 'No' }}</td>
+              <td>
+                <span class="pill" [class.success]="item.is_active" [class.danger]="!item.is_active">
+                  {{ item.is_active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
               <td *ngIf="canManageItems" class="actions-cell">
                 <button class="ghost-btn small" type="button" (click)="openEdit(item)">Editar</button>
                 <button
                   class="danger-btn small"
                   type="button"
-                  [disabled]="deactivatingItemId === item.id"
+                  [disabled]="!item.is_active || deactivatingItemId === item.id"
                   (click)="deactivate(item)">
-                  {{ deactivatingItemId === item.id ? 'Desactivando...' : 'Desactivar' }}
+                  {{ deactivatingItemId === item.id ? '...' : 'Desactivar' }}
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div *ngIf="items.length === 0 && !loadingItems" class="empty">No hay artículos para mostrar.</div>
-      <div *ngIf="loadingItems" class="empty">Cargando inventario...</div>
+
+      <div *ngIf="items.length === 0 && !loadingItems" class="empty">
+        <span class="empty-icon">📦</span>
+        No hay artículos para mostrar.
+        <span *ngIf="search || statusFilter !== 'all'" style="display:block; margin-top:8px;">
+          <button class="ghost-btn small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+        </span>
+      </div>
+
+      <div *ngIf="loadingItems" class="empty">
+        <span class="spinner"></span>
+      </div>
     </section>
 
-    <div class="modal-backdrop" *ngIf="showForm">
-      <section class="modal-card">
-        <div class="section-title">
+    <!-- Create / Edit Modal -->
+    <div class="modal-backdrop" *ngIf="showForm" (click)="onBackdropClick($event)">
+      <section class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
           <h2>{{ editingItem ? 'Editar artículo' : 'Nuevo artículo' }}</h2>
-          <button class="icon-btn" type="button" [disabled]="saving" (click)="closeForm()">×</button>
+          <button class="icon-btn" type="button" [disabled]="saving" (click)="closeForm()">✕</button>
         </div>
+
         <form class="form-grid two" (ngSubmit)="save()">
-          <label>Código único
-            <input name="code" [(ngModel)]="formModel.code" required minlength="2">
+          <label>
+            Código único *
+            <input name="code" [(ngModel)]="formModel.code" required minlength="2" placeholder="Ej: MANT-0001" [disabled]="!!editingItem">
           </label>
-          <label>Nombre
-            <input name="name" [(ngModel)]="formModel.name" required minlength="2">
+          <label>
+            Nombre del artículo *
+            <input name="name" [(ngModel)]="formModel.name" required minlength="2" placeholder="Ej: Bombillo LED 9W">
           </label>
-          <label>Unidad
-            <input name="unit" [(ngModel)]="formModel.unit" required>
+          <label>
+            Unidad de medida *
+            <input name="unit" [(ngModel)]="formModel.unit" required placeholder="Ej: unidad, caja, litro">
           </label>
-          <label>Stock actual
+          <label>
+            Stock actual *
             <input type="number" name="current_stock" [(ngModel)]="formModel.current_stock" min="0" required>
           </label>
-          <label>Stock mínimo
+          <label>
+            Stock mínimo *
             <input type="number" name="min_stock" [(ngModel)]="formModel.min_stock" min="0" required>
           </label>
-          <label>Stock máximo
+          <label>
+            Stock máximo *
             <input type="number" name="max_stock" [(ngModel)]="formModel.max_stock" min="0" required>
           </label>
-          <label class="span-2">Descripción
-            <textarea name="description" [(ngModel)]="formModel.description" rows="3"></textarea>
+          <label class="span-2">
+            Descripción
+            <textarea name="description" [(ngModel)]="formModel.description" rows="2" placeholder="Descripción o ubicación del artículo (opcional)"></textarea>
           </label>
           <label class="check-row span-2">
             <input type="checkbox" name="is_active" [(ngModel)]="formModel.is_active">
-            Artículo activo
+            Artículo activo en el sistema
           </label>
+
           <p class="error span-2" *ngIf="formError">{{ formError }}</p>
-          <button type="submit" class="primary-btn span-2" [disabled]="saving || !canSaveItem()">
-            {{ saving ? 'Guardando...' : 'Guardar' }}
-          </button>
+
+          <div class="span-2" style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+            <button type="button" class="ghost-btn" [disabled]="saving" (click)="closeForm()">Cancelar</button>
+            <button type="submit" class="primary-btn" [disabled]="saving || !canSaveItem()">
+              <span *ngIf="saving" class="spinner"></span>
+              {{ saving ? 'Guardando...' : (editingItem ? 'Guardar cambios' : 'Crear artículo') }}
+            </button>
+          </div>
         </form>
       </section>
     </div>
@@ -139,36 +193,39 @@ export class ItemsComponent implements OnInit {
     private readonly cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit(): void {
-    this.load();
-  }
+  ngOnInit(): void { this.load(); }
 
   get canManageItems(): boolean {
     return hasRole(this.auth.currentUser()?.role, MANAGE_ITEM_ROLES);
   }
 
+  countByStatus(status: StockStatus): number {
+    return this.items.filter((i) => i.stock_status === status).length;
+  }
+
+  stockColor(item: InventoryItem): string {
+    if (item.stock_status === 'low') return 'var(--red-700)';
+    if (item.stock_status === 'high') return 'var(--amber-700)';
+    return 'var(--gray-800)';
+  }
+
+  clearFilters(): void {
+    this.search = '';
+    this.statusFilter = 'all';
+    this.load();
+  }
+
   load(): void {
     if (this.loadingItems) return;
-
     this.loadingItems = true;
     this.error = '';
     this.cdr.detectChanges();
 
     this.itemsService.list(this.search, this.statusFilter)
-      .pipe(
-        finalize(() => {
-          this.loadingItems = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.loadingItems = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (items) => {
-          this.items = items;
-        },
-        error: (err) => {
-          console.error('Error cargando inventario:', err);
-          this.error = getHttpErrorMessage(err, 'No fue posible cargar el inventario.');
-        }
+        next: (items) => { this.items = items; },
+        error: (err) => { this.error = getHttpErrorMessage(err, 'No fue posible cargar el inventario.'); }
       });
   }
 
@@ -202,6 +259,10 @@ export class ItemsComponent implements OnInit {
     this.showForm = false;
     this.formError = '';
     this.cdr.detectChanges();
+  }
+
+  onBackdropClick(event: MouseEvent): void {
+    if (!this.saving) this.closeForm();
   }
 
   canSaveItem(): boolean {
@@ -242,44 +303,25 @@ export class ItemsComponent implements OnInit {
       : this.itemsService.create(payload);
 
     request
-      .pipe(
-        finalize(() => {
-          this.saving = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: () => {
-          this.showForm = false;
-          this.load();
-        },
-        error: (err) => {
-          console.error('Error guardando artículo:', err);
-          this.formError = getHttpErrorMessage(err, 'No fue posible guardar el artículo.');
-        }
+        next: () => { this.showForm = false; this.load(); },
+        error: (err) => { this.formError = getHttpErrorMessage(err, 'No fue posible guardar el artículo.'); }
       });
   }
 
   deactivate(item: InventoryItem): void {
-    if (!confirm(`¿Desactivar ${item.code}?`)) return;
+    if (!confirm(`¿Desactivar el artículo "${item.name}" (${item.code})?`)) return;
 
     this.deactivatingItemId = item.id;
     this.error = '';
     this.cdr.detectChanges();
 
     this.itemsService.deactivate(item.id)
-      .pipe(
-        finalize(() => {
-          this.deactivatingItemId = '';
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(finalize(() => { this.deactivatingItemId = ''; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => this.load(),
-        error: (err) => {
-          console.error('Error desactivando artículo:', err);
-          this.error = getHttpErrorMessage(err, 'No fue posible desactivar el artículo.');
-        }
+        error: (err) => { this.error = getHttpErrorMessage(err, 'No fue posible desactivar el artículo.'); }
       });
   }
 
@@ -293,15 +335,6 @@ export class ItemsComponent implements OnInit {
   }
 
   private emptyForm(): InventoryItemPayload {
-    return {
-      code: '',
-      name: '',
-      description: '',
-      unit: 'unidad',
-      current_stock: 0,
-      min_stock: 0,
-      max_stock: 0,
-      is_active: true
-    };
+    return { code: '', name: '', description: '', unit: 'unidad', current_stock: 0, min_stock: 0, max_stock: 0, is_active: true };
   }
 }
